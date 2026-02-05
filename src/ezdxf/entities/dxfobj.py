@@ -99,9 +99,13 @@ class XRecord(DXFObject):
             try:
                 tags = processor.subclasses[1]
             except IndexError:
-                raise DXFStructureError(
-                    f"Missing subclass AcDbXrecord in XRecord (#{dxf.handle})"
+                # Missing AcDbXrecord subclass - create empty tags
+                logger.warning(
+                    f"Missing subclass AcDbXrecord in XRecord (#{dxf.handle}) - using empty tags"
                 )
+                self.tags = Tags()
+                return dxf
+            
             start_index = 1
             if len(tags) > 1:
                 # First tag is group code 280, but not for DXF R13/R14.
