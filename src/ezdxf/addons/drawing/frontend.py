@@ -207,7 +207,7 @@ class UniversalFrontend:
 
     def skip_entity(self, entity: DXFEntity, msg: str) -> None:
         """Called for skipped entities - override to alter behavior."""
-        self.log_message(f'skipped entity {str(entity)}. Reason: "{msg}"')
+        pass
 
     def exec_property_override(
         self, entity: DXFGraphic, properties: Properties
