@@ -3,6 +3,7 @@
 from __future__ import annotations
 from typing import Iterable, Optional, cast, TYPE_CHECKING
 import abc
+import logging
 import math
 from ezdxf.entities import DXFEntity, Insert, get_font_name
 
@@ -24,6 +25,8 @@ from ezdxf.fonts import fonts
 
 if TYPE_CHECKING:
     from ezdxf.entities import LWPolyline, Polyline, MText, Text
+
+logger = logging.getLogger("ezdxf")
 
 __all__ = [
     "make_primitive",
@@ -596,8 +599,8 @@ def to_primitives(
     for e in entities:
         try:
             yield make_primitive(e, max_flattening_distance)
-        except:
-            print("Skipping entity")
+        except Exception as ex:
+            logger.debug(f"skipping entity {e}: {ex}")
 
 
 def to_vertices(primitives: Iterable[Primitive]) -> Iterable[Vec3]:

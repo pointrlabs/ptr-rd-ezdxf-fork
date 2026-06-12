@@ -126,7 +126,7 @@ class Dictionary(DXFObject):
                         data[key] = ent.copy(copy_strategy=copy_strategy)
                     except CopyNotSupported:
                         if copy_strategy.settings.ignore_copy_errors_in_linked_entities:
-                            logger.warning(
+                            logger.debug(
                                 f"copy process ignored {str(ent)} - this may cause problems in AutoCAD"
                             )
                         else:

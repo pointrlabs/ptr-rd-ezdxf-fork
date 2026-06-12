@@ -207,7 +207,7 @@ class UniversalFrontend:
 
     def skip_entity(self, entity: DXFEntity, msg: str) -> None:
         """Called for skipped entities - override to alter behavior."""
-        self.log_message(f'skipped entity {str(entity)}. Reason: "{msg}"')
+        logger.debug(f'skipped entity {str(entity)}. Reason: "{msg}"')
 
     def exec_property_override(
         self, entity: DXFGraphic, properties: Properties
@@ -550,7 +550,7 @@ class UniversalFrontend:
 
         def timeout() -> bool:
             if time.perf_counter() - t0 > max_time:
-                print(
+                logger.debug(
                     f"hatching timeout of {max_time}s reached for {str(polygon)} - aborting"
                 )
                 return True
@@ -1030,8 +1030,8 @@ def _draw_entities(
             frontend.override_properties(entity, properties)
             if properties.is_visible:
                 frontend.draw_entity(entity, properties)
-        except:
-            print("Skipping entity")
+        except Exception as ex:
+            logger.debug(f"skipping entity {entity}: {ex}")
 
     _draw_viewports(frontend, viewports)
 
