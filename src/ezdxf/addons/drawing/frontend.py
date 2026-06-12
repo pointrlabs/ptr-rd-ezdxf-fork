@@ -550,7 +550,7 @@ class UniversalFrontend:
 
         def timeout() -> bool:
             if time.perf_counter() - t0 > max_time:
-                print(
+                logger.debug(
                     f"hatching timeout of {max_time}s reached for {str(polygon)} - aborting"
                 )
                 return True
