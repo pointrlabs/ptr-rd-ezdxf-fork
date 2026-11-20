@@ -78,6 +78,7 @@ from ezdxf.path import (
 from ezdxf.render import MeshBuilder, TraceBuilder
 from ezdxf import reorder
 from ezdxf.proxygraphic import ProxyGraphic, ProxyGraphicError
+from ezdxf._pointr import log_skipped_entity
 from ezdxf.protocols import SupportsVirtualEntities, virtual_entities
 from ezdxf.tools.text import has_inline_formatting_codes
 from ezdxf.tools import text_layout
@@ -1027,11 +1028,13 @@ def _draw_entities(
                     frontend.skip_entity(entity, "Cannot parse DXF entity")
                     continue
             properties = ctx.resolve_all(entity)
-            frontend.override_properties(entity, properties)
+            # runs override_properties() and the pushed override functions
+            frontend.exec_property_override(entity, properties)
             if properties.is_visible:
                 frontend.draw_entity(entity, properties)
         except Exception as ex:
-            logger.debug(f"skipping entity {entity}: {ex}")
+            # Pointr: one entity that cannot be drawn does not end the drawing
+            log_skipped_entity(logger, "drawing", entity, ex)
 
     _draw_viewports(frontend, viewports)
 

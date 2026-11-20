@@ -2,11 +2,15 @@
 #  License: MIT License
 from __future__ import annotations
 from typing import TYPE_CHECKING, Iterable, Optional
+import logging
 
 import ezdxf
 from ezdxf import disassemble
+from ezdxf._pointr import log_skipped_entity
 from ezdxf.math import BoundingBox, Vec2
 import numpy as np
+
+logger = logging.getLogger("ezdxf")
 
 if TYPE_CHECKING:
     from ezdxf.entities import DXFEntity
@@ -138,18 +142,20 @@ def extents(
     If argument `fast` is ``True`` the calculation of Bézier curves is based on
     their control points, this may return a slightly larger bounding box.
 
-    """
+    Pointr: with `doc` given, invisible entities and entities on layers that are
+    off or frozen are left out, text boxes far larger than the geometry are left
+    out, and boxes far from the size-weighted centre are left out as outliers.
+    Without `doc` it is the upstream calculation, which ezdxf itself relies on
+    (zoom, select, xclip, MULTILEADER rendering, text2path, viewports).
 
-    # filter invisible entities
-    filtered_entities = []
-    filtered_entity_count = 0
-    for entity in entities:
-        layer_str = entity.dxf.layer
-        layer = doc.layers.get(layer_str)
-        if entity.dxf.invisible == 1 or not layer.is_on() or layer.is_frozen():
-            filtered_entity_count += 1
-        else:
-            filtered_entities.append(entity)
+    """
+    if doc is None:
+        _extends = BoundingBox()
+        for box in multi_flat(entities, fast=fast, cache=cache):
+            _extends.extend(box)
+        return _extends
+
+    filtered_entities = [e for e in entities if _is_drawn(e, doc)]
 
     bounding_boxes = []
     text_entries = []
@@ -157,7 +163,13 @@ def extents(
 
     for entity in filtered_entities:
         # Calculate bbox individually to identify entity type
-        boxes = list(multi_flat([entity], fast=fast, cache=cache))
+        try:
+            boxes = list(multi_flat([entity], fast=fast, cache=cache))
+        except Exception as ex:
+            # a malformed entity is not drawn either (the drawing frontend skips
+            # it): it must not end the bounding box of the whole drawing
+            log_skipped_entity(logger, "bbox.extents", entity, ex)
+            continue
         if not boxes:
             continue
         box = boxes[0]
@@ -198,6 +210,13 @@ def extents(
     # Calculate center points and size metrics
     center_points = [(box.center.x, box.center.y) for box in bounding_boxes]
     size_metrics = [(box.extmax - box.extmin).x + (box.extmax - box.extmin).y for box in bounding_boxes]
+    if not sum(size_metrics) > 0:
+        # only zero-size boxes (points, zero-length lines): there is no size to
+        # weight by (np.average raises ZeroDivisionError), keep them all
+        _extends = BoundingBox()
+        for box in bounding_boxes:
+            _extends.extend(box)
+        return _extends
 
     # Calculate weighted average center
     avg_center_x = np.average([pt[0] for pt in center_points], weights=size_metrics)
@@ -225,6 +244,29 @@ def extents(
     for box in filtered_boxes:
         _extends.extend(box)
     return _extends
+
+
+def _is_drawn(entity: DXFEntity, doc) -> bool:
+    """Whether a CAD application draws `entity`: not invisible, and its layer is
+    on and not frozen.
+
+    Not every entity of a layout has the graphical attributes: entity types ezdxf
+    cannot parse (ARCALIGNEDTEXT, POSITIONMARKER, PLANESURFACE, custom objects of
+    other applications) are loaded as DXFTagStorage, and `entity.dxf.layer` raises
+    DXFAttributeError for them. They have no bounding box anyway, so they are kept
+    and multi_flat() skips them. A layer missing from the layer table is drawn
+    with the default properties (on, thawed), as CAD applications do.
+    """
+    dxf = entity.dxf
+    if dxf.is_supported("invisible") and dxf.get("invisible", 0) == 1:
+        return False
+    if not dxf.is_supported("layer"):
+        return True
+    name = dxf.get("layer", "0")
+    if not doc.layers.has_entry(name):
+        return True
+    layer = doc.layers.get(name)
+    return layer.is_on() and not layer.is_frozen()
 
 
 def multi_flat(
