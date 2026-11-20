@@ -1,0 +1,21 @@
+# Upstream ezdxf tests the Pointr fork fails on purpose.
+#
+# conftest.py marks each one xfail(strict=True): the build fails when one of
+# them passes again (remove the line) and when any other upstream test fails
+# (a fork change broke upstream behaviour; fix the change or, if the new
+# behaviour is wanted, add the test here with the reason).
+#
+# Before this list existed the upstream suite never ran on the fork (its
+# workflows run on master only) and 82 upstream tests failed unnoticed:
+# bbox.extents() without doc= raised AttributeError for every ezdxf caller
+# (zoom, select, xclip, MULTILEADER, text2path) and POLYFACE / POLYMESH had no
+# bounding box.
+
+# Polyline widths are ignored: a banded 2D polyline is drawn and measured as its
+# centre line, not as a filled outline (b04a6faee "Regard Mesh polygons as line").
+tests/test_04_dxf_high_level_structs/test_416a_disassemble.py::test_2d_polyline_including_width_to_primitive
+tests/test_08_addons/test_811a_drawing_frontend.py::test_banded_lwpolyline
+tests/test_08_addons/test_811a_drawing_frontend.py::test_banded_polyline_2d
+tests/test_08_addons/test_811b_drawing_recorder.py::test_banded_lwpolyline_as_filled_polygon
+tests/test_10_issues/test_issue_414_bbox_calculation.py::TestMakePrimitive::test_make_primitive
+tests/test_10_issues/test_issue_414_bbox_calculation.py::TestMakePrimitive::test_bounding_box_calculation

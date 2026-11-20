@@ -26,6 +26,8 @@ from ezdxf.fonts import fonts
 if TYPE_CHECKING:
     from ezdxf.entities import LWPolyline, Polyline, MText, Text
 
+from ezdxf._pointr import log_skipped_entity
+
 logger = logging.getLogger("ezdxf")
 
 __all__ = [
@@ -258,11 +260,14 @@ class PolylinePrimitive(ConvertedPrimitive):
         #     for face in tb.faces_wcs(ocs, elevation):
         #         mb.add_face(face)
         #     self._mesh = MeshBuilder.from_builder(mb)
-        # elif e.is_2d_polyline or e.is_3d_polyline:
-        self._path = make_path(e)
-        # else:
-        #     m = MeshVertexMerger.from_polyface(e)  # type: ignore
-        #     self._mesh = MeshBuilder.from_builder(m)
+        # Pointr: widths are ignored (a banded 2D polyline is its centre line), but
+        # a polygon mesh or poly-face mesh has no path representation: make_path()
+        # raises TypeError for them, so they keep the mesh representation.
+        if e.is_2d_polyline or e.is_3d_polyline:
+            self._path = make_path(e)
+        else:
+            m = MeshVertexMerger.from_polyface(e)  # type: ignore
+            self._mesh = MeshBuilder.from_builder(m)
 
 
 class HatchPrimitive(ConvertedPrimitive):
@@ -600,7 +605,7 @@ def to_primitives(
         try:
             yield make_primitive(e, max_flattening_distance)
         except Exception as ex:
-            logger.debug(f"skipping entity {e}: {ex}")
+            log_skipped_entity(logger, "disassemble.to_primitives", e, ex)
 
 
 def to_vertices(primitives: Iterable[Primitive]) -> Iterable[Vec3]:
